@@ -616,9 +616,9 @@ void Game::saveGameState()
 		IOLoginData::savePlayer(it.second);
 	}
 
-  for (const auto& it : guilds) {
-    IOGuild::saveGuild(it.second);
-  }
+	for (const auto& it : guilds) {
+		IOGuild::saveGuild(it.second);
+	}
 
 	Map::save();
 
@@ -779,7 +779,7 @@ Thing* Game::internalGetThing(Player* player, const Position& pos, int32_t index
 			return nullptr;
 		}
 
-		if (parentContainer->getID() == ITEM_BROWSEFIELD) {
+		if (parentContainer->getClientID() == ITEM_BROWSEFIELD) {
 			Tile* tile = parentContainer->getTile();
 			if (tile && tile->hasFlag(TILESTATE_SUPPORTS_HANGABLE)) {
 				if (tile->hasProperty(CONST_PROP_ISVERTICAL)) {
@@ -1579,7 +1579,7 @@ void Game::playerMoveItem(Player* player, const Position& fromPos,
 	}
 
 	if (toCylinder->getContainer() != NULL &&
-		toCylinder->getItem()->getID() == ITEM_LOCKER &&
+		toCylinder->getItem()->getClientID() == ITEM_LOCKER &&
 		toPos.getZ() == ITEM_SUPPLY_STASH_INDEX) {
 		player->stowItem(item, count, false);
 			return;
@@ -1883,7 +1883,7 @@ ReturnValue Game::internalAddItem(Cylinder* toCylinder, Item* item, int32_t inde
 	uint32_t maxQueryCount = 0;
 	ret = destCylinder->queryMaxCount(INDEX_WHEREEVER, *item, item->getItemCount(), maxQueryCount, flags);
 
-	if (ret != RETURNVALUE_NOERROR && toCylinder->getItem() && toCylinder->getItem()->getID() != ITEM_REWARD_CONTAINER) {
+	if (ret != RETURNVALUE_NOERROR && toCylinder->getItem() && toCylinder->getItem()->getClientID() != ITEM_REWARD_CONTAINER) {
 		return ret;
 	}
 
@@ -2153,7 +2153,8 @@ void Game::addMoney(Cylinder* cylinder, uint64_t money, uint32_t flags /*= 0*/)
 	while (crystalCoins > 0) {
 		const uint16_t count = std::min<uint32_t>(100, crystalCoins);
 
-		Item* remaindItem = Item::CreateItem(ITEM_CRYSTAL_COIN, count);
+		const ItemType& itemType = Item::items.getItemIdByClientId(ITEM_CRYSTAL_COIN);
+		Item* remaindItem = Item::CreateItem(itemType.id, count);
 
 		ReturnValue ret = internalAddItem(cylinder, remaindItem, INDEX_WHEREEVER, flags);
 		if (ret != RETURNVALUE_NOERROR) {
@@ -2165,7 +2166,8 @@ void Game::addMoney(Cylinder* cylinder, uint64_t money, uint32_t flags /*= 0*/)
 
 	uint16_t platinumCoins = money / 100;
 	if (platinumCoins != 0) {
-		Item* remaindItem = Item::CreateItem(ITEM_PLATINUM_COIN, platinumCoins);
+		const ItemType& itemType = Item::items.getItemIdByClientId(ITEM_PLATINUM_COIN);
+		Item* remaindItem = Item::CreateItem(itemType.id, platinumCoins);
 
 		ReturnValue ret = internalAddItem(cylinder, remaindItem, INDEX_WHEREEVER, flags);
 		if (ret != RETURNVALUE_NOERROR) {
@@ -2176,7 +2178,8 @@ void Game::addMoney(Cylinder* cylinder, uint64_t money, uint32_t flags /*= 0*/)
 	}
 
 	if (money != 0) {
-		Item* remaindItem = Item::CreateItem(ITEM_GOLD_COIN, money);
+		const ItemType& itemType = Item::items.getItemIdByClientId(ITEM_GOLD_COIN);
+		Item* remaindItem = Item::CreateItem(itemType.id, money);
 
 		ReturnValue ret = internalAddItem(cylinder, remaindItem, INDEX_WHEREEVER, flags);
 		if (ret != RETURNVALUE_NOERROR) {
@@ -3547,7 +3550,7 @@ void Game::playerWrapableItem(uint32_t playerId, const Position& pos, uint8_t st
 			return;
 	}
 
-	if (!item || item->getClientID() != spriteId || item->hasAttribute(ITEM_ATTRIBUTE_UNIQUEID) || (!item->isWrapable() && item->getID() != 26054)) {
+	if (!item || item->getClientID() != spriteId || item->hasAttribute(ITEM_ATTRIBUTE_UNIQUEID) || (!item->isWrapable() && item->getClientID() != ITEM_DECORATION_KIT)) {
 		player->sendCancelMessage(RETURNVALUE_NOTPOSSIBLE);
 		return;
 	}
@@ -3573,7 +3576,7 @@ void Game::playerWrapableItem(uint32_t playerId, const Position& pos, uint8_t st
 		return;
 	}
 
-	if ((item->getHoldingPlayer() && item->getID() == 26054) || (tile->hasFlag(TILESTATE_IMMOVABLEBLOCKSOLID) && !item->hasProperty(CONST_PROP_IMMOVABLEBLOCKSOLID))) {
+	if ((item->getHoldingPlayer() && item->getClientID() == ITEM_DECORATION_KIT) || (tile->hasFlag(TILESTATE_IMMOVABLEBLOCKSOLID) && !item->hasProperty(CONST_PROP_IMMOVABLEBLOCKSOLID))) {
 		player->sendCancelMessage("You can only wrap/unwrap in the floor.");
 		return;
 	}
@@ -3586,20 +3589,20 @@ void Game::playerWrapableItem(uint32_t playerId, const Position& pos, uint8_t st
 		unWrapId = (uint16_t)tmp;
 	}
 
-  // prevent to wrap a filled bath tube
-  if (item->getID() == 29313) {
-    player->sendCancelMessage(RETURNVALUE_NOTPOSSIBLE);
-    return;
-  }
+	// Prevent to wrap a filled bath tube
+	if (item->getClientID() == ITEM_FILLED_BATH_TUBE) {
+		player->sendCancelMessage(RETURNVALUE_NOTPOSSIBLE);
+		return;
+	}
 
-	if (item->isWrapable() && item->getID() != TRANSFORM_BOX_ID) {
+	if (item->isWrapable() && item->getClientID() != ITEM_DECORATION_KIT) {
 		uint16_t hiddenCharges = 0;
-		if (isCaskItem(item->getID())) {
+		if (isCaskItem(item->getClientID())) {
 			hiddenCharges = item->getSubType();
 		}
 		uint16_t oldItemID = item->getID();
 		addMagicEffect(item->getPosition(), CONST_ME_POFF);
-		Item* newItem = transformItem(item, 26054);
+		Item* newItem = transformItem(item, Item::items.getItemIdByClientId(ITEM_DECORATION_KIT).id);
 		ItemAttributes::CustomAttribute val;
 		val.set<int64_t>(oldItemID);
 		std::string key = "unWrapId";
@@ -3610,7 +3613,7 @@ void Game::playerWrapableItem(uint32_t playerId, const Position& pos, uint8_t st
 		}
 		startDecay(item);
 	}
-	else if (item->getID() == TRANSFORM_BOX_ID && unWrapId != 0) {
+	else if (item->getClientID() == ITEM_DECORATION_KIT && unWrapId != 0) {
 		uint16_t hiddenCharges = item->getDate();
 		item->removeAttribute(ITEM_ATTRIBUTE_DESCRIPTION);
 		addMagicEffect(item->getPosition(), CONST_ME_POFF);
@@ -4587,7 +4590,7 @@ void Game::playerSetLootContainer(uint32_t playerId, ObjectCategory_t category, 
 	}
 
 	Container* container = thing->getContainer();
-	if (!container || (container->getID() == ITEM_GOLD_POUCH && category != OBJECTCATEGORY_GOLD)) {
+	if (!container || (container->getClientID() == ITEM_GOLD_POUCH && category != OBJECTCATEGORY_GOLD)) {
 		player->sendCancelMessage(RETURNVALUE_NOTPOSSIBLE);
 		return;
 	}
@@ -5535,18 +5538,19 @@ void Game::combatGetTypeInfo(CombatType_t combatType, Creature* target, TextColo
 	switch (combatType) {
 		case COMBAT_PHYSICALDAMAGE: {
 			Item* splash = nullptr;
+			const ItemType& itemTypeSmallSplash = Item::items.getItemIdByClientId(ITEM_SMALLSPLASH);
 			switch (target->getRace()) {
 				case RACE_VENOM:
 					color = TEXTCOLOR_LIGHTGREEN;
 					effect = CONST_ME_HITBYPOISON;
-					splash = Item::CreateItem(ITEM_SMALLSPLASH, FLUID_SLIME);
+					splash = Item::CreateItem(itemTypeSmallSplash.id, FLUID_SLIME);
 					break;
 				case RACE_BLOOD:
 					color = TEXTCOLOR_RED;
 					effect = CONST_ME_DRAWBLOOD;
 					if (const Tile* tile = target->getTile()) {
 						if (!tile->hasFlag(TILESTATE_PROTECTIONZONE)) {
-							splash = Item::CreateItem(ITEM_SMALLSPLASH, FLUID_BLOOD);
+							splash = Item::CreateItem(itemTypeSmallSplash.id, FLUID_BLOOD);
 						}
 					}
 					break;
@@ -7522,17 +7526,17 @@ void Game::playerCreateMarketOffer(uint32_t playerId, uint8_t type, uint16_t spr
 		return;
 	}
 
-	const ItemType& itt = Item::items.getItemIdByClientId(spriteId);
-	if (itt.id == 0 || itt.wareId == 0) {
+	const ItemType& itemType = Item::items.getItemIdByClientId(spriteId);
+	if (itemType.id == 0 || itemType.wareId == 0) {
 		return;
 	}
 
-	const ItemType& it = Item::items.getItemIdByClientId(itt.wareId);
-	if (it.id == 0 || it.wareId == 0) {
+	const ItemType& itemTypeWareId = Item::items.getItemIdByClientId(itemType.wareId);
+	if (itemTypeWareId.id == 0 || itemTypeWareId.wareId == 0) {
 		return;
 	}
 
-	if (!it.stackable && amount > 2000) {
+	if (!itemTypeWareId.stackable && amount > 2000) {
 		return;
 	}
 
@@ -7556,7 +7560,7 @@ void Game::playerCreateMarketOffer(uint32_t playerId, uint8_t type, uint16_t spr
 			return;
 		}
 
-		if (it.id == ITEM_STORE_COIN) {
+		if (itemTypeWareId.id == ITEM_STORE_COIN) {
       account::Account account(player->getAccount());
       account.LoadAccountDB();
       uint32_t coins;
@@ -7568,16 +7572,16 @@ void Game::playerCreateMarketOffer(uint32_t playerId, uint8_t type, uint16_t spr
       account.RemoveCoins(static_cast<uint32_t>(amount));
     } else {
 		uint16_t stashmath = amount;
-		uint16_t stashminus = player->getStashItemCount(it.wareId);
+		uint16_t stashminus = player->getStashItemCount(itemTypeWareId.wareId);
 		if (stashminus > 0) {
 			stashmath = (amount - (amount > stashminus ? stashminus : amount));
-			player->withdrawItem(it.wareId, (amount > stashminus ? stashminus : amount));
+			player->withdrawItem(itemTypeWareId.wareId, (amount > stashminus ? stashminus : amount));
 		}
 
-		std::forward_list<Item *> itemList = getMarketItemList(it.wareId, stashmath, depotLocker);
+		std::forward_list<Item *> itemList = getMarketItemList(itemTypeWareId.wareId, stashmath, depotLocker);
 
 		if (!itemList.empty()) {
-			if (it.stackable) {
+			if (itemTypeWareId.stackable) {
 				uint16_t tmpAmount = stashmath;
 				for (Item *item : itemList) {
 					uint16_t removeCount = std::min<uint16_t>(tmpAmount, item->getItemCount());
@@ -7604,20 +7608,21 @@ void Game::playerCreateMarketOffer(uint32_t playerId, uint8_t type, uint16_t spr
 		g_game.removeMoney(player, totalPrice, 0, true);
 	}
 
-	IOMarket::createOffer(player->getGUID(), static_cast<MarketAction_t>(type), it.id, amount, price, anonymous);
+	IOMarket::createOffer(player->getGUID(), static_cast<MarketAction_t>(type), itemTypeWareId.id, amount, price, anonymous);
 
-	auto ColorItem = itemsPriceMap.find(it.id);
+	auto ColorItem = itemsPriceMap.find(itemTypeWareId.id);
 	if (ColorItem == itemsPriceMap.end()) {
-		itemsPriceMap[it.id] = price;
+		itemsPriceMap[itemTypeWareId.id] = price;
 		itemsSaleCount++;
 	} else if (ColorItem->second < price) {
-		itemsPriceMap[it.id] = price;
+		itemsPriceMap[itemTypeWareId.id] = price;
 	}
 
+	// Send market window again for update stats
 	player->sendMarketEnter(player->getLastDepotId());
-	const MarketOfferList& buyOffers = IOMarket::getActiveOffers(MARKETACTION_BUY, it.id);
-	const MarketOfferList& sellOffers = IOMarket::getActiveOffers(MARKETACTION_SELL, it.id);
-	player->sendMarketBrowseItem(it.id, buyOffers, sellOffers);
+	const MarketOfferList& buyOffers = IOMarket::getActiveOffers(MARKETACTION_BUY, itemTypeWareId.id);
+	const MarketOfferList& sellOffers = IOMarket::getActiveOffers(MARKETACTION_SELL, itemTypeWareId.id);
+	player->sendMarketBrowseItem(itemTypeWareId.id, buyOffers, sellOffers);
 
 	//
 	player->updateMarketExhausted(); // Exhausted for create offert in the market
@@ -7646,25 +7651,27 @@ void Game::playerCancelMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 		return;
 	}
 
+	const ItemType& itemTypeStoreCoin = Item::items.getItemIdByClientId(offer.itemId);
+	const ItemType& itemType = Item::items[offer.itemId];
 	if (offer.type == MARKETACTION_BUY) {
 		player->setBankBalance( player->getBankBalance() + static_cast<uint64_t>(offer.price) * offer.amount);
+		// Send market window again for update stats
 		player->sendMarketEnter(player->getLastDepotId());
 	} else {
-		const ItemType& it = Item::items[offer.itemId];
-		if (it.id == 0) {
+		if (itemType.id == 0) {
 			return;
 		}
 
-		if (it.id == ITEM_STORE_COIN) {
+		if (itemTypeStoreCoin.id == ITEM_STORE_COIN) {
       account::Account account;
       account.LoadAccountDB(player->getAccount());
       account.AddCoins(offer.amount);
     }
-		else if (it.stackable) {
+		else if (itemType.stackable) {
 			uint16_t tmpAmount = offer.amount;
 			while (tmpAmount > 0) {
 				int32_t stackCount = std::min<int32_t>(100, tmpAmount);
-				Item* item = Item::CreateItem(it.id, stackCount);
+				Item* item = Item::CreateItem(itemType.id, stackCount);
 				if (internalAddItem(player->getInbox(), item, INDEX_WHEREEVER, FLAG_NOLIMIT) != RETURNVALUE_NOERROR) {
 					delete item;
 					break;
@@ -7674,14 +7681,14 @@ void Game::playerCancelMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 			}
 		} else {
 			int32_t subType;
-			if (it.charges != 0) {
-				subType = it.charges;
+			if (itemType.charges != 0) {
+				subType = itemType.charges;
 			} else {
 				subType = -1;
 			}
 
 			for (uint16_t i = 0; i < offer.amount; ++i) {
-				Item* item = Item::CreateItem(it.id, subType);
+				Item* item = Item::CreateItem(itemType.id, subType);
 				if (internalAddItem(player->getInbox(), item, INDEX_WHEREEVER, FLAG_NOLIMIT) != RETURNVALUE_NOERROR) {
 					delete item;
 					break;
@@ -7694,8 +7701,10 @@ void Game::playerCancelMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 	offer.amount = 0;
 	offer.timestamp += g_config.getNumber(MARKET_OFFER_DURATION);
 	player->sendMarketCancelOffer(offer);
+	// Send market window again for update stats
 	player->sendMarketEnter(player->getLastDepotId());
-	player->updateMarketExhausted(); // Exhausted for cancel offer in the market
+	// Exhausted for cancel offer in the market
+	player->updateMarketExhausted();
 }
 
 void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16_t counter, uint16_t amount) // Limit of 64k of items to create offer
@@ -7729,14 +7738,15 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 		return;
 	}
 
-	const ItemType& it = Item::items[offer.itemId];
-	if (it.id == 0) {
+	const ItemType& itemType = Item::items[offer.itemId];
+	if (itemType.id == 0) {
 		return;
 	}
 
 	uint64_t totalPrice = offer.price * amount;
 
-	// The player has an offer to by something and someone is going to sell to it
+	const ItemType& itemTypeStoreCoin = Item::items.getItemIdByClientId(offer.itemId);
+	// The player has an offer to by something and someone is going to sell to itemType
 	// so the market action is 'buy' as who created the offer is buying.
 	if (offer.type == MARKETACTION_BUY) {
 		DepotLocker* depotLocker = player->getDepotLocker(player->getLastDepotId());
@@ -7758,7 +7768,7 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 			}
 		}
 
-		if (it.id == ITEM_STORE_COIN) {
+    if (itemTypeStoreCoin.id == ITEM_STORE_COIN) {
       account::Account account;
       account.LoadAccountDB(player->getAccount());
       uint32_t coins;
@@ -7772,12 +7782,12 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
       account.RegisterCoinsTransaction(account::COIN_REMOVE, amount,
                                       "Sold on Market");
     } else {
-			std::forward_list<Item*> itemList = getMarketItemList(it.wareId, amount, depotLocker);
+			std::forward_list<Item*> itemList = getMarketItemList(itemType.wareId, amount, depotLocker);
 			if (itemList.empty()) {
 				return;
 			}
 
-			if (it.stackable) {
+			if (itemType.stackable) {
 				uint16_t tmpAmount = amount;
 				for (Item* item : itemList) {
 					uint16_t removeCount = std::min<uint16_t>(tmpAmount, item->getItemCount());
@@ -7796,19 +7806,19 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 		}
 		player->setBankBalance(player->getBankBalance() + totalPrice);
 
-		if (it.id == ITEM_STORE_COIN) {
+		if (itemTypeStoreCoin.id == ITEM_STORE_COIN) {
       account::Account account;
       account.LoadAccountDB(buyerPlayer->getAccount());
       account.AddCoins(amount);
       account.RegisterCoinsTransaction(account::COIN_ADD, amount,
                                       "Purchased on Market");
     }
-    else if (it.stackable)
+    else if (itemType.stackable)
     {
       uint16_t tmpAmount = amount;
 			while (tmpAmount > 0) {
 				uint16_t stackCount = std::min<uint16_t>(100, tmpAmount);
-				Item* item = Item::CreateItem(it.id, stackCount);
+				Item* item = Item::CreateItem(itemType.id, stackCount);
 				if (internalAddItem(buyerPlayer->getInbox(), item, INDEX_WHEREEVER, FLAG_NOLIMIT) != RETURNVALUE_NOERROR) {
 					delete item;
 					break;
@@ -7820,14 +7830,14 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
     else
     {
       int32_t subType;
-			if (it.charges != 0) {
-				subType = it.charges;
+			if (itemType.charges != 0) {
+				subType = itemType.charges;
 			} else {
 				subType = -1;
 			}
 
 			for (uint16_t i = 0; i < amount; ++i) {
-				Item* item = Item::CreateItem(it.id, subType);
+				Item* item = Item::CreateItem(itemType.id, subType);
 				if (internalAddItem(buyerPlayer->getInbox(), item, INDEX_WHEREEVER, FLAG_NOLIMIT) != RETURNVALUE_NOERROR) {
 					delete item;
 					break;
@@ -7863,17 +7873,17 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 			g_game.removeMoney(player, remainsPrice);
 		}
 
-		if (it.id == ITEM_STORE_COIN) {
+		if (itemTypeStoreCoin.id == ITEM_STORE_COIN) {
       account::Account account;
       account.LoadAccountDB(player->getAccount());
       account.AddCoins(amount);
       account.RegisterCoinsTransaction(account::COIN_ADD, amount,
                                       "Purchased on Market");
-		} else if (it.stackable) {
+		} else if (itemType.stackable) {
 			uint16_t tmpAmount = amount;
 			while (tmpAmount > 0) {
 				uint16_t stackCount = std::min<uint16_t>(100, tmpAmount);
-				Item* item = Item::CreateItem(it.id, stackCount);
+				Item* item = Item::CreateItem(itemType.id, stackCount);
 				if (internalAddItem(player->getInbox(), item, INDEX_WHEREEVER, FLAG_NOLIMIT) != RETURNVALUE_NOERROR) {
 					delete item;
 					break;
@@ -7883,14 +7893,14 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 			}
 		} else {
 			int32_t subType;
-			if (it.charges != 0) {
-				subType = it.charges;
+			if (itemType.charges != 0) {
+				subType = itemType.charges;
 			} else {
 				subType = -1;
 			}
 
 			for (uint16_t i = 0; i < amount; ++i) {
-				Item* item = Item::CreateItem(it.id, subType);
+				Item* item = Item::CreateItem(itemType.id, subType);
 				if (internalAddItem(player->getInbox(), item, INDEX_WHEREEVER, FLAG_NOLIMIT) != RETURNVALUE_NOERROR) {
 					delete item;
 					break;
@@ -7900,7 +7910,7 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 
 		if (sellerPlayer) {
 			sellerPlayer->setBankBalance(sellerPlayer->getBankBalance() + totalPrice);
-			if (it.id == ITEM_STORE_COIN) {
+			if (itemTypeStoreCoin.id == ITEM_STORE_COIN) {
         account::Account account;
         account.LoadAccountDB(sellerPlayer->getAccount());
         account.RegisterCoinsTransaction(account::COIN_REMOVE, amount,
@@ -7908,7 +7918,7 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
       }
 		} else {
 			IOLoginData::increaseBankBalance(offer.playerId, totalPrice);
-			if (it.id == ITEM_STORE_COIN) {
+			if (itemTypeStoreCoin.id == ITEM_STORE_COIN) {
 				sellerPlayer = new Player(nullptr);
 
 				if (IOLoginData::loadPlayerById(sellerPlayer, offer.playerId)) {
@@ -7921,8 +7931,8 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 				delete sellerPlayer;
 			}
 		}
-		if (it.id != ITEM_STORE_COIN) {
-		player->onReceiveMail();
+		if (itemType.id != ITEM_STORE_COIN) {
+			player->onReceiveMail();
 		}
 	}
 
@@ -7940,6 +7950,7 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 		IOMarket::acceptOffer(offer.id, amount);
 	}
 
+	// Send market window again for update stats
 	player->sendMarketEnter(player->getLastDepotId());
 	offer.timestamp += marketOfferDuration;
 	player->sendMarketAcceptOffer(offer);
@@ -8023,9 +8034,9 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId,
 					Item * item;
 
 					if (offer -> type == WRAP_ITEM) {
-						item = Item::CreateItem(TRANSFORM_BOX_ID, std::min < uint16_t > (packSize, pendingCount));
-						item -> setActionId(tmp -> productId);
-						item -> setSpecialDescription("Unwrap it in your own house to create a <" + Item::items[tmp -> productId].name + ">.");
+						item = Item::CreateItem(Item::items.getItemIdByClientId(ITEM_DECORATION_KIT).id, std::min <uint16_t> (packSize, pendingCount));
+						item->setActionId(tmp -> productId);
+						item->setSpecialDescription("Unwrap it in your own house to create a <" + Item::items[tmp -> productId].name + ">.");
 					} else {
 						item = Item::CreateItem(tmp -> productId, std::min < uint16_t > (packSize, pendingCount));
 					}
